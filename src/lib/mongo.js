@@ -69,6 +69,16 @@ var replSetGetStatus = function(db, done) {
   });
 };
 
+var mongoGetVersion = function(db, done) {
+  db.admin().serverStatus(function (err, results) {
+    if (err) {
+      return done(err);
+    }
+
+    return done(null, results.version);
+  });
+};
+
 var initReplSet = function(db, hostIpAndPort, done) {
   console.log('initReplSet', hostIpAndPort);
 
@@ -84,16 +94,29 @@ var initReplSet = function(db, hostIpAndPort, done) {
       }
 
       console.log('initial rsConfig is', rsConfig);
-      rsConfig.configsvr = config.isConfigRS;
-      rsConfig.members[0].host = hostIpAndPort;
-      async.retry({times: 20, interval: 500}, function(callback) {
-        replSetReconfig(db, rsConfig, false, callback);
-      }, function(err, results) {
+      mongoGetVersion(db, function(err, version) {
         if (err) {
           return done(err);
         }
 
-        return done();
+        var versions = version.split('.');
+        var major = versions[0];
+        var minor = versions[1];
+        var release = versions[2];
+        // configSvr is only supported in 3.2+
+        if (parseInt(major) >= 3 && parseInt(minor) >= 2) {
+          rsConfig.configsvr = config.isConfigRS;
+        }
+        rsConfig.members[0].host = hostIpAndPort;
+        async.retry({times: 20, interval: 500}, function(callback) {
+          replSetReconfig(db, rsConfig, false, callback);
+        }, function(err, results) {
+          if (err) {
+            return done(err);
+          }
+
+          return done();
+        });
       });
     });
   });
