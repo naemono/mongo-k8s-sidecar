@@ -99,6 +99,8 @@ var initReplSet = function(db, hostIpAndPort, done) {
           return done(err);
         }
 
+        console.log(`Got mongodb version ${version}`)
+
         var versions = version.split('.');
         var major = versions[0];
         var minor = versions[1];
